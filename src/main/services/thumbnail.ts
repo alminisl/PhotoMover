@@ -2,15 +2,12 @@ import { join, extname } from 'path'
 import { app } from 'electron'
 import { ensureDir, pathExists, writeFile } from 'fs-extra'
 import { createHash } from 'crypto'
-// Use the full exifr bundle — the default lite bundle doesn't support RAF/RAW thumbnail extraction
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const exifr = require('exifr/dist/full.umd.cjs')
+// exifr's node entry points ("main"/"module") are the full bundle, which
+// includes RAF/RAW thumbnail extraction — the lite bundle is browser-only
+import exifr from 'exifr'
 import Jimp from 'jimp'
 
-// Raise jimp's bitmap memory cap so large/high-res images don't get rejected
-Jimp.MAX_BITMAP_SIZE = 600 * 1024 * 1024  // 600 MB
-
-const THUMB_SIZE = 320
+const THUMB_SIZE = 220
 let cacheDir: string | null = null
 
 const RAW_EXTENSIONS = new Set([
@@ -29,9 +26,13 @@ function thumbKey(filePath: string, mtimeMs: number): string {
   return `${hash}.jpg`
 }
 
+// Maps EXIF orientation → degrees to rotate (Jimp rotates counter-clockwise)
+const ORIENTATION_ROTATION: Record<number, number> = { 3: 180, 6: 270, 8: 90 }
+
 export async function generateThumbnail(
   filePath: string,
-  mtimeMs: number
+  mtimeMs: number,
+  orientation = 1
 ): Promise<string | null> {
   try {
     const dir = getCacheDir()
@@ -44,16 +45,35 @@ export async function generateThumbnail(
       return thumbPath
     }
 
-    const ext = extname(filePath).toLowerCase()
-    const isRaw = RAW_EXTENSIONS.has(ext)
-
-    if (isRaw) {
-      const preview = ext === '.raf'
-        ? await extractRafJpeg(filePath)
-        : await extractExifrJpeg(filePath)
-
+    // Fast path: extract the EXIF-embedded thumbnail — cameras always write one.
+    // exifr reads only the file header (a few KB), not the full image.
+    // Works for JPG, RAF, CR2, NEF, ARW, DNG, and most other formats.
+    try {
+      const preview = await exifr.thumbnail(filePath)
       if (preview) {
-        const resized = await resizeJpegBuffer(preview)
+        const buf = Buffer.isBuffer(preview) ? preview : Buffer.from(preview)
+        const rotation = ORIENTATION_ROTATION[orientation]
+        if (rotation) {
+          const rotated = await resizeJpegBuffer(buf, rotation)
+          if (rotated) {
+            await writeFile(thumbPath, rotated)
+            return thumbPath
+          }
+        }
+        await writeFile(thumbPath, buf)
+        return thumbPath
+      }
+    } catch {
+      // fall through
+    }
+
+    const ext = extname(filePath).toLowerCase()
+
+    // RAF fallback: read the full-res embedded JPEG from the binary header
+    if (ext === '.raf') {
+      const preview = await extractRafJpeg(filePath)
+      if (preview) {
+        const resized = await resizeJpegBuffer(preview, ORIENTATION_ROTATION[orientation])
         if (resized) {
           await writeFile(thumbPath, resized)
           return thumbPath
@@ -62,7 +82,11 @@ export async function generateThumbnail(
       return null
     }
 
-    // For regular images, use jimp
+    // Other RAW formats with no embedded thumbnail — skip
+    if (RAW_EXTENSIONS.has(ext)) {
+      return null
+    }
+
     const image = await Jimp.read(filePath)
     image.cover(THUMB_SIZE, THUMB_SIZE).quality(85)
     const jpegBuffer = await image.getBufferAsync(Jimp.MIME_JPEG)
@@ -110,20 +134,54 @@ async function extractRafJpeg(filePath: string): Promise<Buffer | null> {
   }
 }
 
-/** For other RAW formats (CR2, NEF, ARW, etc.) — use exifr full bundle */
-async function extractExifrJpeg(filePath: string): Promise<Buffer | null> {
+/**
+ * Full-size preview for formats the renderer can't display directly.
+ * RAF files carry a full-resolution embedded JPEG — extract and cache it.
+ * Other RAW formats fall back to the EXIF thumbnail (small, but better than nothing).
+ * Returns a path to a cached JPEG, or null if no preview could be produced.
+ */
+export async function generateFullPreview(
+  filePath: string,
+  mtimeMs: number
+): Promise<string | null> {
   try {
-    const preview = await exifr.thumbnail(filePath)
-    if (!preview) return null
-    return Buffer.isBuffer(preview) ? preview : Buffer.from(preview)
-  } catch {
+    const dir = getCacheDir()
+    await ensureDir(dir)
+
+    const key = thumbKey(filePath, mtimeMs).replace('.jpg', '_full.jpg')
+    const previewPath = join(dir, key)
+    if (await pathExists(previewPath)) return previewPath
+
+    const ext = extname(filePath).toLowerCase()
+
+    if (ext === '.raf') {
+      const jpeg = await extractRafJpeg(filePath)
+      if (jpeg) {
+        await writeFile(previewPath, jpeg)
+        return previewPath
+      }
+    }
+
+    if (RAW_EXTENSIONS.has(ext)) {
+      const preview = await exifr.thumbnail(filePath)
+      if (preview) {
+        const buf = Buffer.isBuffer(preview) ? preview : Buffer.from(preview)
+        await writeFile(previewPath, buf)
+        return previewPath
+      }
+    }
+
+    return null
+  } catch (err) {
+    console.error('[thumbnail] full preview failed for', filePath, err)
     return null
   }
 }
 
-async function resizeJpegBuffer(buf: Buffer): Promise<Buffer | null> {
+async function resizeJpegBuffer(buf: Buffer, rotation?: number): Promise<Buffer | null> {
   try {
     const image = await Jimp.read(buf)
+    if (rotation) image.rotate(rotation)
     image.cover(THUMB_SIZE, THUMB_SIZE).quality(85)
     return await image.getBufferAsync(Jimp.MIME_JPEG)
   } catch (err) {

@@ -4,14 +4,26 @@ import { readJson, writeJson, pathExists } from 'fs-extra'
 
 const CONFIG_PATH = join(app.getPath('userData'), 'config.json')
 
+export type AppMode = 'transfer' | 'library'
+
 export interface AppConfig {
   sourcePath: string | null
   destinationPath: string | null
+  deleteOriginal: boolean
+  organizeByDay: boolean
+  separateRaw: boolean
+  libraryPath: string
+  lastMode: AppMode
 }
 
 const defaults: AppConfig = {
   sourcePath: null,
-  destinationPath: null
+  destinationPath: null,
+  deleteOriginal: true,
+  organizeByDay: false,
+  separateRaw: false,
+  libraryPath: '',
+  lastMode: 'transfer'
 }
 
 export async function loadConfig(): Promise<AppConfig> {

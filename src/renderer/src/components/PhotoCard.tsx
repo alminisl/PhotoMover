@@ -1,23 +1,26 @@
+import { memo } from 'react'
 import { useAppStore } from '../stores/appStore'
 import type { PhotoWithTag } from '../stores/appStore'
 import { TrashIcon, ArrowRightIcon } from './icons'
 
 interface PhotoCardProps {
   photo: PhotoWithTag
-  onClick: () => void
+  onClick: (e: React.MouseEvent) => void
+  selected?: boolean
 }
 
-export function PhotoCard({ photo, onClick }: PhotoCardProps): JSX.Element {
+export const PhotoCard = memo(function PhotoCard({ photo, onClick, selected = false }: PhotoCardProps): JSX.Element {
   const setTag = useAppStore((s) => s.setTag)
 
   const thumbSrc = photo.thumbnailData ?? null
 
-  const tagRingClass =
-    photo.tag === 'transfer'
-      ? 'ring-2 ring-emerald-500'
-      : photo.tag === 'delete'
-      ? 'ring-2 ring-red-500'
-      : 'ring-1 ring-zinc-800'
+  const tagRingClass = selected
+    ? 'ring-2 ring-indigo-400'
+    : photo.tag === 'transfer'
+    ? 'ring-2 ring-emerald-500'
+    : photo.tag === 'delete'
+    ? 'ring-2 ring-red-500'
+    : 'ring-1 ring-zinc-800'
 
   function handleTransfer(e: React.MouseEvent): void {
     e.stopPropagation()
@@ -35,13 +38,14 @@ export function PhotoCard({ photo, onClick }: PhotoCardProps): JSX.Element {
 
   return (
     <div
+      data-photo-id={photo.id}
       onClick={onClick}
       className={`
         group relative rounded-xl overflow-hidden cursor-pointer
         bg-zinc-900 transition-all duration-150 hover:scale-[1.02]
         ${tagRingClass}
       `}
-      style={{ aspectRatio: '1' }}
+      style={{ aspectRatio: '1', contentVisibility: 'auto', containIntrinsicSize: '160px 160px' }}
     >
       {/* Thumbnail */}
       {thumbSrc ? (
@@ -58,6 +62,24 @@ export function PhotoCard({ photo, onClick }: PhotoCardProps): JSX.Element {
           </svg>
         </div>
       )}
+
+      {/* Selection overlay */}
+      {selected && (
+        <div className="absolute inset-0 bg-indigo-500/10 pointer-events-none" />
+      )}
+      <div className={`
+        absolute top-2 right-2 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all z-10
+        ${selected
+          ? 'bg-indigo-500 border-indigo-400'
+          : 'bg-black/40 border-white/30 opacity-0 group-hover:opacity-100'
+        }
+      `}>
+        {selected && (
+          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </div>
 
       {/* Tag badge */}
       {photo.tag !== 'none' && (
@@ -77,7 +99,7 @@ export function PhotoCard({ photo, onClick }: PhotoCardProps): JSX.Element {
         </div>
 
         {/* Action buttons */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1">
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
           <button
             onClick={handleTransfer}
             title="Tag for transfer"
@@ -108,4 +130,4 @@ export function PhotoCard({ photo, onClick }: PhotoCardProps): JSX.Element {
       </div>
     </div>
   )
-}
+})

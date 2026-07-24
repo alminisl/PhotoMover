@@ -22,9 +22,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Claude Code
-.claude/
-
 # Env
 .env
 .env.local

@@ -5,7 +5,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerDriveHandlers } from './ipc/drive.ipc'
 import { registerPhotoHandlers } from './ipc/photos.ipc'
 import { registerTransferHandlers } from './ipc/transfer.ipc'
+import { registerLibraryHandlers } from './ipc/library.ipc'
 import { loadConfig, saveConfig } from './services/config'
+import { libraryMetadata } from './services/library-metadata'
+import { fromLocalFileUrl } from './utils/localfile'
 
 // Register custom protocol for serving local thumbnail/source files safely
 protocol.registerSchemesAsPrivileged([
@@ -49,18 +52,13 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await libraryMetadata.load()
   electronApp.setAppUserModelId('com.photransfer.app')
 
-  // Serve local files via localfile:/// protocol
-  // Must use 3 slashes so Windows drive letters aren't parsed as the hostname
+  // Serve local files via localfile://local/<encoded path>
   protocol.handle('localfile', (request) => {
-    // URL: localfile:///C:/path/to/file.jpg  → pathname: /C:/path/to/file.jpg
-    const pathname = new URL(request.url).pathname
-    // On Windows: strip leading slash before drive letter → C:/path/to/file.jpg
-    const filePath = decodeURIComponent(
-      pathname.startsWith('/') && pathname[2] === ':' ? pathname.slice(1) : pathname
-    )
+    const filePath = fromLocalFileUrl(request.url)
     return net.fetch(pathToFileURL(filePath).toString())
   })
 
@@ -72,6 +70,7 @@ app.whenReady().then(() => {
   registerDriveHandlers()
   registerPhotoHandlers()
   registerTransferHandlers()
+  registerLibraryHandlers()
 
   // Config handlers
   ipcMain.handle('config:load', () => loadConfig())
@@ -92,6 +91,10 @@ app.whenReady().then(() => {
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('before-quit', async () => {
+  await libraryMetadata.flush()
 })
 
 app.on('window-all-closed', () => {

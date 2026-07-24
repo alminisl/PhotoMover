@@ -1,5 +1,6 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const exifr = require('exifr/dist/full.umd.cjs')
+// exifr's node entry points ("main"/"module") are the full bundle, which
+// includes RAF/RAW support — the lite bundle is browser-only
+import exifr from 'exifr'
 import { stat, open } from 'fs/promises'
 import { extname } from 'path'
 

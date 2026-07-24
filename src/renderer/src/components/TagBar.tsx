@@ -3,7 +3,7 @@ import { useAppStore } from '../stores/appStore'
 import { ArrowRightIcon, TrashIcon, XIcon } from './icons'
 
 export function TagBar(): JSX.Element {
-  const { photos, destinationPath, setTagAll, setView, setTransferResult } = useAppStore()
+  const { photos, destinationPath, setTagAll, setTagBulk, setView, setTransferResult, selectedIds, clearSelection } = useAppStore()
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
 
   const toTransfer = photos.filter((p) => p.tag === 'transfer')
@@ -35,12 +35,51 @@ export function TagBar(): JSX.Element {
     useAppStore.getState().setTagBulk(toDelete.map((p) => p.id), 'none')
   }
 
+  // Selection mode bar
+  if (selectedIds.size > 0) {
+    const selIds = [...selectedIds]
+    return (
+      <div className="border-t border-zinc-800/60 bg-zinc-900/80 backdrop-blur-sm flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <span className="text-xs text-indigo-400 font-medium">{selectedIds.size} selected</span>
+          <div className="flex-1" />
+          <button
+            onClick={() => { setTagBulk(selIds, 'none'); clearSelection() }}
+            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded hover:bg-zinc-800"
+          >
+            Clear tag
+          </button>
+          <button
+            onClick={() => { setTagBulk(selIds, 'delete'); clearSelection() }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors text-xs"
+          >
+            <TrashIcon className="w-3.5 h-3.5" />
+            Tag delete
+          </button>
+          <button
+            onClick={() => { setTagBulk(selIds, 'transfer'); clearSelection() }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-medium transition-colors"
+          >
+            <ArrowRightIcon className="w-3.5 h-3.5" />
+            Tag transfer
+          </button>
+          <button
+            onClick={clearSelection}
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+          >
+            <XIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (toTransfer.length === 0 && toDelete.length === 0) {
     return (
       <div className="px-4 py-3 border-t border-zinc-800/60 flex-shrink-0">
         <p className="text-center text-xs text-zinc-600">
           Hover photos and use <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[10px]">→</kbd> to transfer or{' '}
-          <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[10px]">🗑</kbd> to delete
+          <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[10px]">🗑</kbd> to delete — shift-click or drag to multi-select
         </p>
       </div>
     )

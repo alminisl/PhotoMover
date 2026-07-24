@@ -1,18 +1,25 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { PhotoWithTag } from '../stores/appStore'
-import { useAppStore } from '../stores/appStore'
-import { XIcon, ChevronLeftIcon, ChevronRightIcon, ArrowRightIcon, TrashIcon } from './icons'
+import type { PhotoWithLibraryTag, LibraryTagState } from '../stores/appStore'
+import { XIcon, ChevronLeftIcon, ChevronRightIcon, TrashIcon, PencilIcon } from './icons'
+import { StarRating } from './StarRating'
 
-interface PhotoPreviewProps {
-  photos: PhotoWithTag[]
+interface LibraryPhotoPreviewProps {
+  photos: PhotoWithLibraryTag[]
   initialIndex: number
   onClose: () => void
+  onRatingChange: (photo: PhotoWithLibraryTag, rating: number) => void
+  onTagChange: (photo: PhotoWithLibraryTag, tag: LibraryTagState) => void
 }
 
-export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProps): JSX.Element {
+export function LibraryPhotoPreview({
+  photos,
+  initialIndex,
+  onClose,
+  onRatingChange,
+  onTagChange
+}: LibraryPhotoPreviewProps): JSX.Element {
   const [index, setIndex] = useState(initialIndex)
   const [fullSrc, setFullSrc] = useState<string | null>(null)
-  const setTag = useAppStore((s) => s.setTag)
 
   const photo = photos[index]
 
@@ -34,19 +41,21 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowLeft') prev()
-      if (e.key === 'ArrowRight') next()
-      if (e.key === 't' || e.key === 'T') setTag(photo.id, photo.tag === 'transfer' ? 'none' : 'transfer')
-      if (e.key === 'd' || e.key === 'D') setTag(photo.id, photo.tag === 'delete' ? 'none' : 'delete')
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key === 'ArrowLeft') { prev(); return }
+      if (e.key === 'ArrowRight') { next(); return }
+      if (!photo) return
+      if (e.key === 'd' || e.key === 'D') onTagChange(photo, photo.libraryTag === 'to-delete' ? 'none' : 'to-delete')
+      if (e.key === 'e' || e.key === 'E') onTagChange(photo, photo.libraryTag === 'to-edit' ? 'none' : 'to-edit')
+      if (e.key === 'r' || e.key === 'R') onTagChange(photo, 'none')
+      const digit = parseInt(e.key)
+      if (digit >= 0 && digit <= 5) onRatingChange(photo, digit)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, prev, next, photo, setTag])
+  }, [onClose, prev, next, photo, onTagChange, onRatingChange])
 
   if (!photo) return <></>
-
-  const thumbSrc = fullSrc ?? photo.thumbnailData ?? null
 
   const exifRows: { label: string; value: string | null }[] = [
     { label: 'Camera', value: [photo.make, photo.model].filter(Boolean).join(' ') || null },
@@ -60,11 +69,7 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
   ].filter((r) => r.value)
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex animate-fade-in"
-      onClick={onClose}
-    >
-      {/* Left arrow */}
+    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex animate-fade-in" onClick={onClose}>
       <button
         onClick={(e) => { e.stopPropagation(); prev() }}
         disabled={index === 0}
@@ -73,7 +78,6 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
         <ChevronLeftIcon className="w-5 h-5" />
       </button>
 
-      {/* Right arrow */}
       <button
         onClick={(e) => { e.stopPropagation(); next() }}
         disabled={index === photos.length - 1}
@@ -82,7 +86,6 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
         <ChevronRightIcon className="w-5 h-5" />
       </button>
 
-      {/* Close */}
       <button
         onClick={onClose}
         className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all"
@@ -90,14 +93,11 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
         <XIcon className="w-4 h-4" />
       </button>
 
-      {/* Image area */}
-      <div
-        className="flex-1 flex items-center justify-center p-16"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {thumbSrc ? (
+      {/* Image */}
+      <div className="flex-1 flex items-center justify-center p-16" onClick={(e) => e.stopPropagation()}>
+        {(fullSrc ?? photo.thumbnailData) ? (
           <img
-            src={thumbSrc}
+            src={(fullSrc ?? photo.thumbnailData)!}
             alt={photo.filename}
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
             draggable={false}
@@ -109,49 +109,52 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
       </div>
 
       {/* Side panel */}
-      <div
-        className="w-64 bg-zinc-900 border-l border-zinc-800 flex flex-col flex-shrink-0 overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-64 bg-zinc-900 border-l border-zinc-800 flex flex-col flex-shrink-0 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="pt-10 pb-4 px-4 border-b border-zinc-800">
           <p className="text-xs text-zinc-500 mb-1">{index + 1} of {photos.length}</p>
           <p className="text-sm font-medium text-zinc-100 break-all leading-snug">{photo.filename}</p>
         </div>
 
+        {/* Rating */}
+        <div className="px-4 pt-4 pb-3 border-b border-zinc-800">
+          <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Rating</p>
+          <StarRating
+            rating={photo.rating}
+            onChange={(r) => onRatingChange(photo, r)}
+            size="md"
+          />
+        </div>
+
         {/* Tag buttons */}
         <div className="p-4 border-b border-zinc-800 space-y-2">
           <button
-            onClick={() => setTag(photo.id, photo.tag === 'transfer' ? 'none' : 'transfer')}
-            className={`
-              w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all
-              ${photo.tag === 'transfer'
-                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
-                : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-emerald-500/40 hover:text-emerald-400'
-              }
-            `}
+            onClick={() => onTagChange(photo, photo.libraryTag === 'to-delete' ? 'none' : 'to-delete')}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+              photo.libraryTag === 'to-delete'
+                ? 'bg-rose-500/10 border-rose-500/40 text-rose-400'
+                : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-rose-500/40 hover:text-rose-400'
+            }`}
           >
-            <ArrowRightIcon className="w-4 h-4" />
-            {photo.tag === 'transfer' ? 'Tagged for transfer' : 'Tag for transfer'}
-            <kbd className="ml-auto text-[10px] opacity-40">T</kbd>
+            <TrashIcon className="w-4 h-4" />
+            {photo.libraryTag === 'to-delete' ? 'Tagged for deletion' : 'Tag for deletion'}
+            <kbd className="ml-auto text-[10px] opacity-40">D</kbd>
           </button>
 
           <button
-            onClick={() => setTag(photo.id, photo.tag === 'delete' ? 'none' : 'delete')}
-            className={`
-              w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all
-              ${photo.tag === 'delete'
-                ? 'bg-red-500/10 border-red-500/40 text-red-400'
-                : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-red-500/40 hover:text-red-400'
-              }
-            `}
+            onClick={() => onTagChange(photo, photo.libraryTag === 'to-edit' ? 'none' : 'to-edit')}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+              photo.libraryTag === 'to-edit'
+                ? 'bg-sky-500/10 border-sky-500/40 text-sky-400'
+                : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:border-sky-500/40 hover:text-sky-400'
+            }`}
           >
-            <TrashIcon className="w-4 h-4" />
-            {photo.tag === 'delete' ? 'Tagged for deletion' : 'Tag for deletion'}
-            <kbd className="ml-auto text-[10px] opacity-40">D</kbd>
+            <PencilIcon className="w-4 h-4" />
+            {photo.libraryTag === 'to-edit' ? 'Tagged for editing' : 'Tag for editing'}
+            <kbd className="ml-auto text-[10px] opacity-40">E</kbd>
           </button>
         </div>
 
-        {/* EXIF data */}
+        {/* EXIF */}
         <div className="p-4 space-y-3">
           <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Details</p>
           {exifRows.map((row) => (
@@ -162,11 +165,8 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
           ))}
         </div>
 
-        {/* Keyboard shortcuts hint */}
         <div className="mt-auto p-4 border-t border-zinc-800">
-          <p className="text-[10px] text-zinc-700">
-            ← → navigate &nbsp;·&nbsp; T transfer &nbsp;·&nbsp; D delete &nbsp;·&nbsp; Esc close
-          </p>
+          <p className="text-[10px] text-zinc-700">← → navigate · D delete · E edit · 1–5 rate · 0 clear · Esc close</p>
         </div>
       </div>
     </div>

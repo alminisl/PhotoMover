@@ -1,15 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../stores/appStore'
 import { FolderIcon, CameraIcon, ChevronRightIcon, HardDriveIcon } from './icons'
+import type { AppConfig } from '../../../preload/index'
 
 export function SetupView(): JSX.Element {
   const {
     drives, sourcePath, destinationPath,
     setSourcePath, setDestinationPath,
-    setView, addPhotos, setScanProgress, clearPhotos
+    setView, addPhotos, setScanProgress, clearPhotos, scanProgress, setPhotoThumbnail
   } = useAppStore()
 
   const [scanning, setScanning] = useState(false)
+  const [settings, setSettings] = useState<Pick<AppConfig, 'deleteOriginal' | 'organizeByDay' | 'separateRaw'>>({
+    deleteOriginal: true,
+    organizeByDay: false,
+    separateRaw: false,
+  })
+
+  // Load persisted settings on mount
+  useEffect(() => {
+    window.api.loadConfig().then((c) => {
+      setSettings({
+        deleteOriginal: c.deleteOriginal,
+        organizeByDay: c.organizeByDay,
+        separateRaw: c.separateRaw,
+      })
+    })
+  }, [])
+
+  function updateSetting<K extends keyof typeof settings>(key: K, value: boolean): void {
+    const next = { ...settings, [key]: value }
+    setSettings(next)
+    window.api.saveConfig(next)
+  }
 
   async function handlePickSource(): Promise<void> {
     const folder = await window.api.openFolder()
@@ -31,30 +54,34 @@ export function SetupView(): JSX.Element {
     if (!sourcePath) return
     setScanning(true)
     clearPhotos()
+    setScanProgress({ done: 0, total: 1 })
 
-    const unsub = window.api.onPhotosBatch((photos) => {
-      addPhotos(photos)
-    })
-
-    const progressUnsub = window.api.onScanProgress((p) => {
-      setScanProgress(p)
+    const unsub = window.api.onPhotosBatch((photos) => addPhotos(photos))
+    const progressUnsub = window.api.onScanProgress((p) => setScanProgress(p))
+    const thumbUnsub = window.api.onPhotosThumbnails((updates) => {
+      updates.forEach((u) => setPhotoThumbnail(u.id, u.thumbnailData))
     })
 
     await window.api.scanPhotos(sourcePath)
 
     unsub()
     progressUnsub()
+    thumbUnsub()
+    setScanProgress(null)
     setScanning(false)
     setView('grid')
   }
 
   const canStart = !!sourcePath && !!destinationPath && !scanning
 
+  // Build a live folder structure preview
+  const previewLines = buildPreview(destinationPath, settings)
+
   return (
-    <div className="flex items-center justify-center h-full bg-[#0f0f11]">
+    <div className="flex items-center justify-center h-full bg-[#0f0f11] overflow-y-auto py-8">
       <div className="w-full max-w-lg px-6 animate-slide-up">
         {/* Hero */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-4">
             <CameraIcon className="w-8 h-8 text-indigo-400" />
           </div>
@@ -99,8 +126,8 @@ export function SetupView(): JSX.Element {
           </div>
         )}
 
-        {/* Source folder */}
-        <div className="space-y-3 mb-6">
+        {/* Folders */}
+        <div className="space-y-3 mb-5">
           <PathSelector
             label="Source Folder"
             value={sourcePath}
@@ -115,45 +142,81 @@ export function SetupView(): JSX.Element {
           />
         </div>
 
+        {/* Settings */}
+        <div className="mb-5 rounded-xl bg-zinc-900/40 border border-zinc-800/60 divide-y divide-zinc-800/60">
+          <ToggleRow
+            label="Delete original after transfer"
+            description="Move files instead of copying"
+            checked={settings.deleteOriginal}
+            onChange={(v) => updateSetting('deleteOriginal', v)}
+          />
+          <ToggleRow
+            label="Organize by day"
+            description="Year / Month / Day subfolders"
+            checked={settings.organizeByDay}
+            onChange={(v) => updateSetting('organizeByDay', v)}
+          />
+          <ToggleRow
+            label="Separate RAW files"
+            description="Put RAW files in a RAW/ subfolder"
+            checked={settings.separateRaw}
+            onChange={(v) => updateSetting('separateRaw', v)}
+          />
+        </div>
+
         {/* Folder structure preview */}
         {destinationPath && (
-          <div className="mb-6 px-3.5 py-3 rounded-xl bg-zinc-900/40 border border-zinc-800/60">
+          <div className="mb-5 px-3.5 py-3 rounded-xl bg-zinc-900/40 border border-zinc-800/60">
             <p className="text-xs text-zinc-500 mb-2">Photos will be organized as:</p>
             <div className="font-mono text-xs text-zinc-400 space-y-0.5">
-              <p><span className="text-zinc-600">📁</span> {shortPath(destinationPath)}/</p>
-              <p className="pl-4"><span className="text-zinc-600">📁</span> 2024/</p>
-              <p className="pl-8"><span className="text-zinc-600">📁</span> April/</p>
-              <p className="pl-12 text-zinc-600">IMG_0001.jpg ...</p>
-              <p className="pl-8"><span className="text-zinc-600">📁</span> March/</p>
-              <p className="pl-4"><span className="text-zinc-600">📁</span> 2023/</p>
+              {previewLines.map((line, i) => (
+                <p key={i} style={{ paddingLeft: `${line.indent * 16}px` }}>
+                  <span className="text-zinc-600">{line.icon} </span>
+                  <span className={line.dim ? 'text-zinc-600' : ''}>{line.text}</span>
+                </p>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Start button */}
-        <button
-          onClick={handleStart}
-          disabled={!canStart}
-          className="
-            w-full flex items-center justify-center gap-2 py-3 px-4
-            rounded-xl font-medium text-sm transition-all duration-150
-            disabled:opacity-30 disabled:cursor-not-allowed
-            bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600
-            text-white shadow-lg shadow-indigo-500/20
-          "
-        >
-          {scanning ? (
-            <>
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Scanning photos...
-            </>
-          ) : (
-            <>
-              <ChevronRightIcon className="w-4 h-4" />
-              Load Photos
-            </>
-          )}
-        </button>
+        {/* Start button / progress */}
+        {scanning && scanProgress ? (
+          <div className="w-full rounded-xl bg-zinc-900/60 border border-zinc-800 px-4 py-3">
+            <div className="flex justify-between text-xs text-zinc-400 mb-2">
+              <span className="flex items-center gap-2">
+                <span className="w-3 h-3 border-2 border-indigo-500/40 border-t-indigo-500 rounded-full animate-spin inline-block" />
+                Processing photos…
+              </span>
+              <span className="tabular-nums">
+                {scanProgress.done} <span className="text-zinc-600">/</span> {scanProgress.total}
+              </span>
+            </div>
+            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-indigo-500 rounded-full transition-all duration-150"
+                style={{ width: `${Math.round((scanProgress.done / scanProgress.total) * 100)}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-zinc-600 mt-1.5 text-right">
+              {Math.round((scanProgress.done / scanProgress.total) * 100)}%
+            </p>
+          </div>
+        ) : (
+          <button
+            onClick={handleStart}
+            disabled={!canStart}
+            className="
+              w-full flex items-center justify-center gap-2 py-3 px-4
+              rounded-xl font-medium text-sm transition-all duration-150
+              disabled:opacity-30 disabled:cursor-not-allowed
+              bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600
+              text-white shadow-lg shadow-indigo-500/20
+            "
+          >
+            <ChevronRightIcon className="w-4 h-4" />
+            Load Photos
+          </button>
+        )}
 
         {!sourcePath && (
           <p className="text-center text-xs text-zinc-600 mt-3">
@@ -161,6 +224,36 @@ export function SetupView(): JSX.Element {
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+function ToggleRow({
+  label, description, checked, onChange
+}: {
+  label: string
+  description: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}): JSX.Element {
+  return (
+    <div className="flex items-center justify-between px-3.5 py-3">
+      <div>
+        <p className="text-sm text-zinc-300">{label}</p>
+        <p className="text-xs text-zinc-600">{description}</p>
+      </div>
+      <button
+        onClick={() => onChange(!checked)}
+        className={`
+          relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0
+          ${checked ? 'bg-indigo-500' : 'bg-zinc-700'}
+        `}
+      >
+        <span className={`
+          absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
+          ${checked ? 'translate-x-4' : 'translate-x-0.5'}
+        `} />
+      </button>
     </div>
   )
 }
@@ -192,6 +285,38 @@ function PathSelector({
       </button>
     </div>
   )
+}
+
+interface PreviewLine { indent: number; icon: string; text: string; dim?: boolean }
+
+function buildPreview(
+  dest: string | null,
+  settings: { organizeByDay: boolean; separateRaw: boolean }
+): PreviewLine[] {
+  if (!dest) return []
+  const root = shortPath(dest)
+  const lines: PreviewLine[] = [{ indent: 0, icon: '📁', text: `${root}/` }]
+  lines.push({ indent: 1, icon: '📁', text: '2024/' })
+  lines.push({ indent: 2, icon: '📁', text: 'April/' })
+  if (settings.organizeByDay) {
+    lines.push({ indent: 3, icon: '📁', text: '15/' })
+    if (settings.separateRaw) {
+      lines.push({ indent: 4, icon: '📁', text: 'RAW/' })
+      lines.push({ indent: 5, icon: '', text: 'DSCF0001.RAF ...', dim: true })
+      lines.push({ indent: 4, icon: '', text: 'DSCF0001.JPG ...', dim: true })
+    } else {
+      lines.push({ indent: 4, icon: '', text: 'DSCF0001.JPG  DSCF0001.RAF ...', dim: true })
+    }
+  } else {
+    if (settings.separateRaw) {
+      lines.push({ indent: 3, icon: '📁', text: 'RAW/' })
+      lines.push({ indent: 4, icon: '', text: 'DSCF0001.RAF ...', dim: true })
+      lines.push({ indent: 3, icon: '', text: 'DSCF0001.JPG ...', dim: true })
+    } else {
+      lines.push({ indent: 3, icon: '', text: 'DSCF0001.JPG  DSCF0001.RAF ...', dim: true })
+    }
+  }
+  return lines
 }
 
 function shortPath(p: string): string {
