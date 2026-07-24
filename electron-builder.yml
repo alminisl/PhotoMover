@@ -1,11 +1,14 @@
-appId: com.photransfer.app
-productName: Photo Transfer
+appId: com.photomover.app
+productName: PhotoMover
 directories:
   buildResources: build
 files:
   - '!**/.vscode/*'
   - '!src/*'
+  - '!tests/*'
+  - '!docs/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!vitest.config.ts'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.*}'
@@ -13,9 +16,30 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: photo-transfer
+  executableName: photomover
+  target:
+    - nsis
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+mac:
+  category: public.app-category.photography
+  target:
+    - dmg
+    - zip
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  category: Graphics
+  maintainer: almin.islamovic@gmail.com
+  target:
+    - AppImage
+    - deb
+appImage:
+  artifactName: ${name}-${version}.${ext}
+publish:
+  provider: github
+  owner: alminisl
+  repo: PhotoMover

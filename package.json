@@ -1,7 +1,14 @@
 {
-  "name": "photo-transfer",
+  "name": "photomover",
   "version": "1.0.0",
-  "description": "Photo transfer and organizer from SD cards",
+  "description": "Import, review, and organize photos from SD cards",
+  "author": "Almin Islamovic <almin.islamovic@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/alminisl/PhotoMover",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alminisl/PhotoMover.git"
+  },
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -11,6 +18,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
     "preview": "electron-vite preview",
     "package": "electron-vite build && electron-builder",
+    "package:win": "electron-vite build && electron-builder --win",
+    "package:mac": "electron-vite build && electron-builder --mac",
+    "package:linux": "electron-vite build && electron-builder --linux",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {

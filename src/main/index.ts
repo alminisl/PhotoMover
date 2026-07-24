@@ -16,6 +16,20 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 function createWindow(): void {
+  // Hidden title bar with overlay controls is only supported on Windows/macOS;
+  // Linux keeps the native frame so the window still has close/minimize buttons
+  const overlayChrome =
+    process.platform === 'linux'
+      ? {}
+      : {
+          titleBarStyle: 'hidden' as const,
+          titleBarOverlay: {
+            color: '#0f0f11',
+            symbolColor: '#a1a1aa',
+            height: 36
+          }
+        }
+
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -23,12 +37,7 @@ function createWindow(): void {
     minHeight: 640,
     show: false,
     autoHideMenuBar: true,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#0f0f11',
-      symbolColor: '#a1a1aa',
-      height: 36
-    },
+    ...overlayChrome,
     backgroundColor: '#0f0f11',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

@@ -1,6 +1,6 @@
 # PhotoMover
 
-A fast, minimal desktop app for importing and organizing photos from SD cards. Review every shot *before* it lands on your drive — tag, move, and delete in one pass.
+A fast, minimal desktop app for importing and organizing photos from SD cards. Review every shot *before* it lands on your drive - tag, move, and delete in one pass.
 
 Think of it as a lightweight, free take on the pro ingest workflow: cull on the card, move (not copy) with verification, and land everything date-organized on your disk.
 
@@ -10,18 +10,34 @@ Think of it as a lightweight, free take on the pro ingest workflow: cull on the 
 
 ## Features
 
-- **Auto-detects SD cards** — plugging in a card surfaces it instantly as a source option
-- **Visual review grid** — browse all photos as thumbnails, grouped by date, before committing to anything
-- **Full-resolution preview** — click any photo for a lightbox with EXIF details and keyboard navigation; RAW files show their embedded JPEG preview
-- **Tag-based workflow** — mark each photo as *Transfer*, *Delete*, or leave it untagged; filter the grid by any tag; shift-click or drag to multi-select
-- **Verified moves** — every copy is checked against the source before the original is deleted; a failed copy never costs you a photo
-- **Auto-organizes by date** — photos land in `Destination/YYYY/Month/filename.jpg` (optionally by day); files without a date go to `Unsorted/`
-- **True duplicate detection** — files already at the destination are compared by content, not just name and size; real duplicates are skipped, same-name-different-content files are renamed `IMG_0001_1.jpg`, `_2`, …
-- **RAW-aware** — reads EXIF from CR2/CR3/NEF/ARW/RAF/ORF/RW2/DNG, extracts embedded thumbnails without decoding the full file, and can separate RAW files into their own subfolder
-- **Live transfer progress** — byte-level progress bar with current file name, plus a transferred / skipped / error summary
-- **Persistent config** — source, destination, and options are remembered between sessions
+- **Auto-detects SD cards** - plugging in a card surfaces it instantly as a source option
+- **Visual review grid** - browse all photos as thumbnails, grouped by date, before committing to anything
+- **Full-resolution preview** - click any photo for a lightbox with EXIF details and keyboard navigation; RAW files show their embedded JPEG preview
+- **Tag-based workflow** - mark each photo as *Transfer*, *Delete*, or leave it untagged; filter the grid by any tag; shift-click or drag to multi-select
+- **Verified moves** - every copy is checked against the source before the original is deleted; a failed copy never costs you a photo
+- **Auto-organizes by date** - photos land in `Destination/YYYY/Month/filename.jpg` (optionally by day); files without a date go to `Unsorted/`
+- **True duplicate detection** - files already at the destination are compared by content, not just name and size; real duplicates are skipped, same-name-different-content files are renamed `IMG_0001_1.jpg`, `_2`, …
+- **RAW-aware** - reads EXIF from CR2/CR3/NEF/ARW/RAF/ORF/RW2/DNG, extracts embedded thumbnails without decoding the full file, and can separate RAW files into their own subfolder
+- **Live transfer progress** - byte-level progress bar with current file name, plus a transferred / skipped / error summary
+- **Persistent config** - source, destination, and options are remembered between sessions
 
 There is also an experimental **Library** mode for browsing, star-rating, and pruning an existing photo folder.
+
+Runs on **Windows**, **macOS**, and **Linux**. SD cards are auto-detected on all three (Windows removable drives, macOS `/Volumes`, Linux `/media` and `/run/media`); anything with a `DCIM` folder is flagged as a camera card.
+
+---
+
+## Download
+
+Prebuilt binaries are on the [Releases page](https://github.com/alminisl/PhotoMover/releases):
+
+| Platform | File |
+|----------|------|
+| Windows | `photomover-<version>-setup.exe` |
+| macOS | `photomover-<version>.dmg` |
+| Linux | `photomover-<version>.AppImage` or `.deb` |
+
+macOS builds are unsigned - on first launch, right-click the app and choose *Open*.
 
 ---
 
@@ -60,15 +76,15 @@ Optional: `Year/Month/Day/` subfolders, and a `RAW/` subfolder per date for RAW 
 
 ## Usage
 
-1. **Insert your SD card** — PhotoMover detects it automatically and shows it as a source option. You can also browse to any folder manually.
-2. **Pick a destination** — choose the folder where organized photos should land. Both paths are saved for next time.
-3. **Load Photos** — scans the source and streams thumbnails into the review grid.
+1. **Insert your SD card** - PhotoMover detects it automatically and shows it as a source option. You can also browse to any folder manually.
+2. **Pick a destination** - choose the folder where organized photos should land. Both paths are saved for next time.
+3. **Load Photos** - scans the source and streams thumbnails into the review grid.
 4. **Tag your shots:**
    - Click a photo to open the full-screen preview; press **T** to tag for transfer, **D** for deletion
    - Shift-click or drag to multi-select, then tag the whole selection at once
    - Use **Tag all** in the action bar to mark everything
-5. **Transfer** — hit the Transfer button; a progress bar tracks the operation file by file. Each file is verified before the original is removed.
-6. **Review the summary** — see how many files were transferred, skipped, or errored. Start a new import or go back to review more.
+5. **Transfer** - hit the Transfer button; a progress bar tracks the operation file by file. Each file is verified before the original is removed.
+6. **Review the summary** - see how many files were transferred, skipped, or errored. Start a new import or go back to review more.
 
 ---
 
@@ -85,7 +101,7 @@ Optional: `Year/Month/Day/` subfolders, and a `RAW/` subfolder per date for RAW 
 | Thumbnails | [Jimp](https://github.com/jimp-dev/jimp) |
 | Tests | [Vitest](https://vitest.dev/) |
 
-All dependencies are pure JavaScript — no native build toolchain required.
+All dependencies are pure JavaScript - no native build toolchain required.
 
 ---
 
@@ -122,13 +138,16 @@ The test suite simulates the full SD-card-to-drive workflow against temp directo
 ### Build for production
 
 ```bash
-npm run package
+npm run package        # build for the current platform
+npm run package:win    # Windows installer (nsis)
+npm run package:mac    # macOS dmg + zip
+npm run package:linux  # Linux AppImage + deb
 ```
 
-The packaged installer will be output to `dist/`.
+The packaged installers land in `dist/`. Releases are built for all three platforms automatically by GitHub Actions whenever a `v*` tag is pushed.
 
 ---
 
 ## License
 
-MIT
+[MIT](LICENSE)
