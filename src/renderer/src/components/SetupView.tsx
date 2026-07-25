@@ -11,10 +11,11 @@ export function SetupView(): JSX.Element {
   } = useAppStore()
 
   const [scanning, setScanning] = useState(false)
-  const [settings, setSettings] = useState<Pick<AppConfig, 'deleteOriginal' | 'organizeByDay' | 'separateRaw'>>({
+  const [settings, setSettings] = useState<Pick<AppConfig, 'deleteOriginal' | 'organizeByDay' | 'separateRaw' | 'safeDelete'>>({
     deleteOriginal: true,
     organizeByDay: false,
     separateRaw: false,
+    safeDelete: true,
   })
 
   // Load persisted settings on mount
@@ -24,6 +25,7 @@ export function SetupView(): JSX.Element {
         deleteOriginal: c.deleteOriginal,
         organizeByDay: c.organizeByDay,
         separateRaw: c.separateRaw,
+        safeDelete: c.safeDelete,
       })
     })
   }, [])
@@ -161,6 +163,12 @@ export function SetupView(): JSX.Element {
             description="Put RAW files in a RAW/ subfolder"
             checked={settings.separateRaw}
             onChange={(v) => updateSetting('separateRaw', v)}
+          />
+          <ToggleRow
+            label="Keep rejects in _Rejects folder"
+            description="Deleted photos move to Destination/_Rejects instead of being erased"
+            checked={settings.safeDelete}
+            onChange={(v) => updateSetting('safeDelete', v)}
           />
         </div>
 

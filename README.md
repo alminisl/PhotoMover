@@ -15,6 +15,7 @@ Think of it as a lightweight, free take on the pro ingest workflow: cull on the 
 - **Full-resolution preview** - click any photo for a lightbox with EXIF details and keyboard navigation; RAW files show their embedded JPEG preview
 - **Tag-based workflow** - mark each photo as *Transfer*, *Delete*, or leave it untagged; filter the grid by any tag; shift-click or drag to multi-select
 - **Verified moves** - every copy is checked against the source before the original is deleted; a failed copy never costs you a photo
+- **Safe deletes** - rejects aren't erased: they're moved (verified, too) into a `_Rejects/` folder on the destination drive, so a mis-tag at 2am is always recoverable. True deletion is an opt-in toggle. Library-mode deletes go to the OS trash.
 - **Auto-organizes by date** - photos land in `Destination/YYYY/Month/filename.jpg` (optionally by day); files without a date go to `Unsorted/`
 - **True duplicate detection** - files already at the destination are compared by content, not just name and size; real duplicates are skipped, same-name-different-content files are renamed `IMG_0001_1.jpg`, `_2`, …
 - **RAW-aware** - reads EXIF from CR2/CR3/NEF/ARW/RAF/ORF/RW2/DNG, extracts embedded thumbnails without decoding the full file, and can separate RAW files into their own subfolder
@@ -85,6 +86,8 @@ Optional: `Year/Month/Day/` subfolders, and a `RAW/` subfolder per date for RAW 
    - Use **Tag all** in the action bar to mark everything
 5. **Transfer** - hit the Transfer button; a progress bar tracks the operation file by file. Each file is verified before the original is removed.
 6. **Review the summary** - see how many files were transferred, skipped, or errored. Start a new import or go back to review more.
+
+Photos tagged for deletion are moved to `Destination/_Rejects/` (with the same copy verification as transfers) - empty that folder yourself once you're sure. Flip the "Keep rejects" toggle off if you want true deletion from the card instead.
 
 ---
 

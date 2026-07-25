@@ -12,6 +12,7 @@ export interface AppConfig {
   deleteOriginal: boolean
   organizeByDay: boolean
   separateRaw: boolean
+  safeDelete: boolean
   libraryPath: string
   lastMode: AppMode
 }
@@ -22,6 +23,7 @@ const defaults: AppConfig = {
   deleteOriginal: true,
   organizeByDay: false,
   separateRaw: false,
+  safeDelete: true,
   libraryPath: '',
   lastMode: 'transfer'
 }

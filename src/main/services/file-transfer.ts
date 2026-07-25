@@ -3,7 +3,7 @@ import { ensureDir, pathExists, remove } from 'fs-extra'
 import { stat } from 'fs/promises'
 import { createHash } from 'crypto'
 import { pipeline } from 'stream/promises'
-import { dirname } from 'path'
+import { dirname, join, basename } from 'path'
 import { getTargetPath, resolveCollision } from './folder-organizer'
 import type { OrganizerOptions } from './folder-organizer'
 import type { PhotoMeta } from '../ipc/photos.ipc'
@@ -142,20 +142,52 @@ async function hashFile(path: string): Promise<string> {
   return hash.digest('hex')
 }
 
-export async function deletePhotos(paths: string[]): Promise<{ deleted: number; errors: string[] }> {
+export interface DiscardResult {
+  deleted: number
+  errors: string[]
+  /** Where rejects were moved, or null if they were permanently deleted */
+  movedTo: string | null
+}
+
+/**
+ * Discard rejected photos. With a rejectsDir, each file is moved there with
+ * the same verify-before-delete guarantee as a transfer — the source is only
+ * removed once its copy is confirmed, so no photo is ever down to zero copies.
+ * Without one, files are permanently deleted.
+ */
+export async function discardPhotos(
+  paths: string[],
+  rejectsDir: string | null = null
+): Promise<DiscardResult> {
   let deleted = 0
   const errors: string[] = []
 
   for (const p of paths) {
     try {
-      if (await pathExists(p)) {
-        await remove(p)
-        deleted++
+      if (!(await pathExists(p))) continue
+
+      if (rejectsDir) {
+        await ensureDir(rejectsDir)
+        const target = join(rejectsDir, basename(p))
+
+        // An identical copy already in _Rejects counts as the second copy
+        const alreadyThere =
+          (await pathExists(target)) &&
+          (await stat(p)).size === (await stat(target)).size &&
+          (await filesIdentical(p, target))
+
+        if (!alreadyThere) {
+          const finalPath = await resolveCollision(target)
+          await copyFileVerified(p, finalPath, () => {})
+        }
       }
+
+      await remove(p)
+      deleted++
     } catch (err) {
       errors.push(`${p}: ${(err as Error).message}`)
     }
   }
 
-  return { deleted, errors }
+  return { deleted, errors, movedTo: rejectsDir }
 }

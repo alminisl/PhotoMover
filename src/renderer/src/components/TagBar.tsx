@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../stores/appStore'
 import { ArrowRightIcon, TrashIcon, XIcon } from './icons'
 
 export function TagBar(): JSX.Element {
   const { photos, destinationPath, setTagAll, setTagBulk, setView, setTransferResult, selectedIds, clearSelection } = useAppStore()
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  const [safeDelete, setSafeDelete] = useState(true)
+
+  useEffect(() => {
+    window.api.loadConfig().then((c) => setSafeDelete(c.safeDelete && !!c.destinationPath))
+  }, [])
 
   const toTransfer = photos.filter((p) => p.tag === 'transfer')
   const toDelete = photos.filter((p) => p.tag === 'delete')
@@ -111,7 +116,11 @@ export function TagBar(): JSX.Element {
           <>
             {showConfirmDelete ? (
               <div className="flex items-center gap-2 animate-fade-in">
-                <span className="text-xs text-red-400">Delete {toDelete.length} photos?</span>
+                <span className="text-xs text-red-400">
+                  {safeDelete
+                    ? `Move ${toDelete.length} photos to _Rejects?`
+                    : `Permanently delete ${toDelete.length} photos?`}
+                </span>
                 <button
                   onClick={handleDelete}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500 hover:bg-red-400 text-white transition-colors"

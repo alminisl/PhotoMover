@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, shell } from 'electron'
 import { readdir, stat, readFile } from 'fs/promises'
 import { join, extname, basename } from 'path'
 import { pathExists, ensureDir, move, remove } from 'fs-extra'
@@ -221,7 +221,13 @@ export function registerLibraryHandlers(): void {
 
     for (const p of absolutePaths) {
       try {
-        await remove(p)
+        // Prefer the OS trash so library deletes are recoverable; fall back to
+        // a hard delete only where no trash exists (e.g. some network mounts)
+        try {
+          await shell.trashItem(p)
+        } catch {
+          await remove(p)
+        }
         libraryMetadata.delete(p)
         deleted.push(p)
       } catch (err) {

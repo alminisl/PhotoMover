@@ -43,7 +43,7 @@ const api = {
     ipcRenderer.invoke('transfer:start', photos, destination),
   onTransferProgress: (cb: (progress: TransferProgress) => void): (() => void) =>
     subscribe('transfer:progress', cb),
-  deletePhotos: (paths: string[]): Promise<{ deleted: number; errors: string[] }> =>
+  deletePhotos: (paths: string[]): Promise<{ deleted: number; errors: string[]; movedTo: string | null }> =>
     ipcRenderer.invoke('transfer:delete', paths),
 
   // Config

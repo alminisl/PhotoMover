@@ -3,7 +3,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { mkdtemp, rm, writeFile, readFile, mkdir } from 'fs/promises'
 import { pathExists } from 'fs-extra'
-import { transferPhotos, deletePhotos, filesIdentical } from '../src/main/services/file-transfer'
+import { transferPhotos, discardPhotos, filesIdentical } from '../src/main/services/file-transfer'
 import type { TransferProgress } from '../src/main/services/file-transfer'
 import type { PhotoMeta } from '../src/main/ipc/photos.ipc'
 
@@ -166,14 +166,65 @@ describe('filesIdentical', () => {
   })
 })
 
-describe('deletePhotos', () => {
-  it('deletes existing files and counts them', async () => {
+describe('discardPhotos', () => {
+  it('permanently deletes when no rejects folder is given', async () => {
     const photo = await addPhoto('trash.jpg', 'delete me', null)
 
-    const result = await deletePhotos([photo.path, join(sdCard, 'never-existed.jpg')])
+    const result = await discardPhotos([photo.path, join(sdCard, 'never-existed.jpg')])
 
     expect(result.deleted).toBe(1)
     expect(result.errors).toHaveLength(0)
+    expect(result.movedTo).toBeNull()
     expect(await pathExists(photo.path)).toBe(false)
+  })
+
+  it('moves rejects into the rejects folder instead of erasing them', async () => {
+    const rejects = join(hdd, '_Rejects')
+    const photo = await addPhoto('reject.jpg', 'blurry shot', null)
+
+    const result = await discardPhotos([photo.path], rejects)
+
+    expect(result.deleted).toBe(1)
+    expect(result.movedTo).toBe(rejects)
+    expect(await pathExists(photo.path)).toBe(false)
+    expect(await readFile(join(rejects, 'reject.jpg'), 'utf8')).toBe('blurry shot')
+  })
+
+  it('renames on name collision so no reject overwrites another', async () => {
+    const rejects = join(hdd, '_Rejects')
+    await mkdir(rejects, { recursive: true })
+    await writeFile(join(rejects, 'IMG_1.jpg'), 'earlier reject')
+    const photo = await addPhoto('IMG_1.jpg', 'newer reject!!', null)
+
+    await discardPhotos([photo.path], rejects)
+
+    expect(await readFile(join(rejects, 'IMG_1.jpg'), 'utf8')).toBe('earlier reject')
+    expect(await readFile(join(rejects, 'IMG_1_1.jpg'), 'utf8')).toBe('newer reject!!')
+  })
+
+  it('skips the copy when an identical reject already exists', async () => {
+    const rejects = join(hdd, '_Rejects')
+    await mkdir(rejects, { recursive: true })
+    await writeFile(join(rejects, 'dup.jpg'), 'same bytes here')
+    const photo = await addPhoto('dup.jpg', 'same bytes here', null)
+
+    const result = await discardPhotos([photo.path], rejects)
+
+    expect(result.deleted).toBe(1)
+    expect(await pathExists(photo.path)).toBe(false)
+    expect(await pathExists(join(rejects, 'dup_1.jpg'))).toBe(false)
+  })
+
+  it('keeps the source if the move to rejects fails', async () => {
+    const photo = await addPhoto('precious.jpg', 'do not lose me', null)
+    // a file where the rejects *directory* should be makes ensureDir fail
+    const blocked = join(hdd, 'blocked')
+    await writeFile(blocked, 'in the way')
+
+    const result = await discardPhotos([photo.path], blocked)
+
+    expect(result.deleted).toBe(0)
+    expect(result.errors).toHaveLength(1)
+    expect(await pathExists(photo.path)).toBe(true)
   })
 })
