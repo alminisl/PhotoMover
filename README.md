@@ -12,7 +12,8 @@ Think of it as a lightweight, free take on the pro ingest workflow: cull on the 
 
 - **Auto-detects SD cards** - plugging in a card surfaces it instantly as a source option
 - **Visual review grid** - browse all photos as thumbnails, grouped by date, before committing to anything
-- **Full-resolution preview** - click any photo for a lightbox with EXIF details and keyboard navigation; RAW files show their embedded JPEG preview
+- **Full-resolution preview with pixel inspection** - click any photo for a lightbox with EXIF details and keyboard navigation; scroll to zoom, drag to pan, double-click for a 1:1 pixel view. Neighboring photos are prefetched so arrow-key browsing doesn't wait on the card
+- **Full-size RAW previews** - CR2/CR3/NEF/ARW/DNG show the full-resolution JPEG embedded by the camera (extracted straight from the file header, no RAW decoding), same as RAF
 - **Tag-based workflow** - mark each photo as *Transfer*, *Delete*, or leave it untagged; filter the grid by any tag; shift-click or drag to multi-select
 - **Verified moves** - every copy is checked against the source before the original is deleted; a failed copy never costs you a photo
 - **Safe deletes** - rejects aren't erased: they're moved (verified, too) into a `_Rejects/` folder on the destination drive, so a mis-tag at 2am is always recoverable. True deletion is an opt-in toggle. Library-mode deletes go to the OS trash.

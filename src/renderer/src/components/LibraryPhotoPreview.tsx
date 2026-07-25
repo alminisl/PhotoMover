@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { PhotoWithLibraryTag, LibraryTagState } from '../stores/appStore'
 import { XIcon, ChevronLeftIcon, ChevronRightIcon, TrashIcon, PencilIcon } from './icons'
 import { StarRating } from './StarRating'
+import { ZoomableImage } from './ZoomableImage'
 
 interface LibraryPhotoPreviewProps {
   photos: PhotoWithLibraryTag[]
@@ -35,6 +36,23 @@ export function LibraryPhotoPreview({
       alive = false
     }
   }, [photo?.path])
+
+  // Prefetch neighbors so arrow-key navigation doesn't wait on disk
+  useEffect(() => {
+    let alive = true
+    for (const neighbor of [photos[index + 1], photos[index - 1]]) {
+      if (!neighbor) continue
+      window.api.getFullPreview(neighbor.path).then((url) => {
+        if (alive && url) {
+          const img = new Image()
+          img.src = url
+        }
+      })
+    }
+    return () => {
+      alive = false
+    }
+  }, [index, photos])
 
   const prev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), [])
   const next = useCallback(() => setIndex((i) => Math.min(photos.length - 1, i + 1)), [photos.length])
@@ -96,11 +114,9 @@ export function LibraryPhotoPreview({
       {/* Image */}
       <div className="flex-1 flex items-center justify-center p-16" onClick={(e) => e.stopPropagation()}>
         {(fullSrc ?? photo.thumbnailData) ? (
-          <img
+          <ZoomableImage
             src={(fullSrc ?? photo.thumbnailData)!}
             alt={photo.filename}
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-            draggable={false}
             onError={() => setFullSrc(null)}
           />
         ) : (
@@ -166,7 +182,7 @@ export function LibraryPhotoPreview({
         </div>
 
         <div className="mt-auto p-4 border-t border-zinc-800">
-          <p className="text-[10px] text-zinc-700">← → navigate · D delete · E edit · 1–5 rate · 0 clear · Esc close</p>
+          <p className="text-[10px] text-zinc-700">← → navigate · scroll zoom · 2×click 100% · D delete · E edit · 1–5 rate · 0 clear · Esc close</p>
         </div>
       </div>
     </div>

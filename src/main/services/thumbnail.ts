@@ -6,6 +6,7 @@ import { createHash } from 'crypto'
 // includes RAF/RAW thumbnail extraction — the lite bundle is browser-only
 import exifr from 'exifr'
 import Jimp from 'jimp'
+import { extractEmbeddedJpeg } from './raw-preview'
 
 const THUMB_SIZE = 220
 let cacheDir: string | null = null
@@ -163,6 +164,13 @@ export async function generateFullPreview(
     }
 
     if (RAW_EXTENSIONS.has(ext)) {
+      // Full-size embedded preview from TIFF-based RAW (CR2/NEF/ARW/DNG) or CR3
+      const embedded = await extractEmbeddedJpeg(filePath)
+      if (embedded) {
+        await writeFile(previewPath, embedded)
+        return previewPath
+      }
+      // Last resort: the small EXIF thumbnail
       const preview = await exifr.thumbnail(filePath)
       if (preview) {
         const buf = Buffer.isBuffer(preview) ? preview : Buffer.from(preview)

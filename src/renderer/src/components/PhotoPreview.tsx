@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { PhotoWithTag } from '../stores/appStore'
 import { useAppStore } from '../stores/appStore'
 import { XIcon, ChevronLeftIcon, ChevronRightIcon, ArrowRightIcon, TrashIcon } from './icons'
+import { ZoomableImage } from './ZoomableImage'
 
 interface PhotoPreviewProps {
   photos: PhotoWithTag[]
@@ -28,6 +29,23 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
       alive = false
     }
   }, [photo?.path])
+
+  // Prefetch neighbors so arrow-key navigation doesn't wait on the card
+  useEffect(() => {
+    let alive = true
+    for (const neighbor of [photos[index + 1], photos[index - 1]]) {
+      if (!neighbor) continue
+      window.api.getFullPreview(neighbor.path).then((url) => {
+        if (alive && url) {
+          const img = new Image()
+          img.src = url
+        }
+      })
+    }
+    return () => {
+      alive = false
+    }
+  }, [index, photos])
 
   const prev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), [])
   const next = useCallback(() => setIndex((i) => Math.min(photos.length - 1, i + 1)), [photos.length])
@@ -96,13 +114,7 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
         onClick={(e) => e.stopPropagation()}
       >
         {thumbSrc ? (
-          <img
-            src={thumbSrc}
-            alt={photo.filename}
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-            draggable={false}
-            onError={() => setFullSrc(null)}
-          />
+          <ZoomableImage src={thumbSrc} alt={photo.filename} onError={() => setFullSrc(null)} />
         ) : (
           <div className="text-zinc-600 text-sm">No preview available</div>
         )}
@@ -165,7 +177,7 @@ export function PhotoPreview({ photos, initialIndex, onClose }: PhotoPreviewProp
         {/* Keyboard shortcuts hint */}
         <div className="mt-auto p-4 border-t border-zinc-800">
           <p className="text-[10px] text-zinc-700">
-            ← → navigate &nbsp;·&nbsp; T transfer &nbsp;·&nbsp; D delete &nbsp;·&nbsp; Esc close
+            ← → navigate &nbsp;·&nbsp; scroll zoom &nbsp;·&nbsp; 2×click 100% &nbsp;·&nbsp; T transfer &nbsp;·&nbsp; D delete &nbsp;·&nbsp; Esc close
           </p>
         </div>
       </div>
