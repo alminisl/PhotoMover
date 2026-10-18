@@ -126,7 +126,12 @@ export function ZoomableImage({ src, alt, onError }: ZoomableImageProps): JSX.El
       onMouseDown={onMouseDown}
       style={{ cursor: scale > 1 ? (dragging ? 'grabbing' : 'grab') : 'zoom-in' }}
     >
+      {/* key forces a remount when the source swaps (thumbnail -> full image):
+          Chromium does not relayout the composited <img> layer when only src
+          changes under a transform, leaving the full image rendered at
+          thumbnail size until the window is resized. */}
       <img
+        key={src}
         ref={imgRef}
         src={src}
         alt={alt}
